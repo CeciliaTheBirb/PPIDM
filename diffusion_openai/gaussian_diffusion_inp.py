@@ -123,7 +123,6 @@ class GaussianDiffusion:
         model_var_type,
         loss_type,
         rescale_timesteps=False,
-        residual_func=None,
     ):
         self.model_mean_type = model_mean_type
         self.model_var_type = model_var_type
@@ -175,7 +174,6 @@ class GaussianDiffusion:
             * np.sqrt(alphas)
             / (1.0 - self.alphas_cumprod)
         )
-        self.residual_func = residual_func
     def q_mean_variance(self, x_start, t):
         """
         Get the distribution q(x_t | x_0).
@@ -881,16 +879,39 @@ class GaussianDiffusion:
         
         
         def residual_losses(model_output, x_start, t):
-                residual = self.residual_func.compute_residual(model_output, x_start)
-                c_residual=0.1
-                var = _extract_into_tensor(
-                    self.posterior_variance_clipped, t, residual.shape
-                )
-                residual_loss_track = residual.abs().mean().item()
-                residual_log_likelihood = self.gaussian_log_likelihood(th.zeros_like(residual), means=residual, variance=var)
-                
-                residual_loss = c_residual * -1. * residual_log_likelihood
-                return residual_loss, residual_loss_track
+            def compute_residual(f_pred, input_all, dx=1, dy=1, dt=3):
+                d = input_all[:,0]
+                u = input_all[:,1]
+                v = input_all[:,2]
+
+                def compute(data, u, v, dt=3):
+                    f_pad = F.pad(data, (1, 1, 1, 1, 0, 0), mode='replicate')
+
+                    f_x = (f_pad[:, :, :, 1:-1, 2:] - f_pad[:, :, :, 1:-1, :-2]) / (2 * dx)
+                    f_y = (f_pad[:, :, :, 2:, 1:-1] - f_pad[:, :, :, :-2, 1:-1]) / (2 * dy)
+
+                    f_t = th.zeros_like(data)
+                    f_t[:, :, 0, :, :] = (data[:, :, 1, :, :] - data[:, :, 0, :, :]) / dt
+                    f_t[:, :, 1:-1, :, :] = (data[:, :, 2:, :, :] - data[:, :, :-2, :, :]) / (2 * dt)
+                    f_t[:, :, -1, :, :] = (data[:, :, -1, :, :] - data[:, :, -2, :, :]) / dt
+
+                    residual = f_t + u * f_x + v * f_y
+                    return residual
+
+                theory = compute(d, u, v)
+                real = compute(f_pred, u, v)
+                return (real-theory)**2
+
+            residual = compute_residual(model_output, x_start)
+            c_residual=0.1
+            var = _extract_into_tensor(
+                self.posterior_variance_clipped, t, residual.shape
+            )
+            residual_loss_track = residual.abs().mean().item()
+            residual_log_likelihood = self.gaussian_log_likelihood(th.zeros_like(residual), means=residual, variance=var)
+
+            residual_loss = c_residual * -1. * residual_log_likelihood
+            return residual_loss, residual_loss_track
 
         residual_loss, _ = residual_losses(model_output, x_start, self._scale_timesteps(t))
         terms["res_loss"] = mean_flat(residual_loss)

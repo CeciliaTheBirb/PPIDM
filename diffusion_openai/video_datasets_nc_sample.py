@@ -9,24 +9,6 @@ from typing import Callable, Optional
 def load_data(
     *, data_file, variable_name, batch_size, image_size, class_cond=False, deterministic=False, transforms=None, rgb=False, seq_len=20,start_j=1008
 ):
-    """
-    For a dataset, create a generator over (videos, kwargs) pairs.
-
-    Each video is an NCLHW float tensor, and the kwargs dict contains zero or
-    more keys, each of which map to a batched Tensor of their own.
-    The kwargs dict can be used for class labels, in which case the key is "y"
-    and the values are integer tensors of class labels.
-
-    :param data_file: a NetCDF file containing the dataset.
-    :param batch_size: the batch size of each returned pair.
-    :param image_size: the size to which frames are resized.
-    :param class_cond: if True, include a "y" key in returned dicts for class
-                       label. If classes are not available and this is true, an
-                       exception will be raised.
-    :param deterministic: if True, yield results in a deterministic order.
-    :param rgb: if True, treat data as RGB. If False, treat data as grayscale.
-    :param seq_len: length of each video sequence.
-    """
     if not data_file:
         raise ValueError("unspecified data file")
     

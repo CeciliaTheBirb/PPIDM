@@ -5,7 +5,6 @@ from . import gaussian_diffusion_inp as gd
 import torch as th
 from .respace import SpacedDiffusion, space_timesteps
 from .unet import SuperResModel, UNetModel
-from diffusion_openai.residual import ResidualsADR
 NUM_CLASSES = 1000
 
 
@@ -77,17 +76,6 @@ def create_model_and_diffusion(
         rgb=rgb
     )
     
-    residual_func = ResidualsADR(model = model, 
-                                 fd_acc = 2, 
-                                 pixels_per_dim = 64, 
-                                 pixels_at_boundary = True, 
-                                 reverse_d1 = True, 
-                                 device = th.device('cuda' if th.cuda.is_available() else 'cpu'), 
-                                 bcs = 'none', 
-                                 domain_length = 1., 
-                                 residual_grad_guidance= False, 
-                                 use_ddim_x0 = False, 
-                                 ddim_steps = 0)
     
     diffusion = create_gaussian_diffusion(
         steps=diffusion_steps,
@@ -99,7 +87,6 @@ def create_model_and_diffusion(
         rescale_timesteps=rescale_timesteps,
         rescale_learned_sigmas=rescale_learned_sigmas,
         timestep_respacing=timestep_respacing,
-        residual_func=residual_func,
     )
     return model, diffusion
 
@@ -275,7 +262,6 @@ def create_gaussian_diffusion(
     rescale_timesteps=False,
     rescale_learned_sigmas=False,
     timestep_respacing="",
-    residual_func=None
 ):
     betas = gd.get_named_beta_schedule(noise_schedule, steps)
     if use_kl:
@@ -303,7 +289,6 @@ def create_gaussian_diffusion(
         ),
         loss_type=loss_type,
         rescale_timesteps=rescale_timesteps,
-        residual_func=residual_func,
     )
 
 
