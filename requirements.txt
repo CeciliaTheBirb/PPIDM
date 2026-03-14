@@ -1,0 +1,14 @@
+blobfile>=1.0.5
+torch
+torchvision
+tqdm
+
+numpy
+scipy
+matplotlib
+Pillow
+
+xarray
+netCDF4
+h5py
+pyyaml
